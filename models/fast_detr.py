@@ -72,27 +72,13 @@ class FastDETR(nn.Module):
         #  experiments, but if you wish to reproduce our results, please follow our setups below.
         # ====================================================================================
 
-        if self.args.epochs >= 25:
-            self.input_proj = nn.ModuleList(
-                [
-                    nn.Sequential(
-                        nn.Conv2d(
-                            backbone.num_channels[0], self.hidden_dim, kernel_size=1
-                        ),
-                    )
-                ]
-            )
-        else:
-            self.input_proj = nn.ModuleList(
-                [
-                    nn.Sequential(
-                        nn.Conv2d(
-                            backbone.num_channels[0], self.hidden_dim, kernel_size=1
-                        ),
-                        nn.GroupNorm(32, self.hidden_dim),
-                    )
-                ]
-            )
+        self.input_proj = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Conv2d(backbone.num_channels[0], self.hidden_dim, kernel_size=1),
+                )
+            ]
+        )
 
         self.class_embed = nn.Linear(self.hidden_dim, num_classes)
         self.bbox_embed = MLP(self.hidden_dim, self.hidden_dim, 4, 3)

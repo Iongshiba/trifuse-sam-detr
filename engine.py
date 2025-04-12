@@ -134,8 +134,6 @@ def evaluate(
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
         outputs = model(samples)
-        for key, val in outputs.items():
-            print(key, val.shape)
         loss_dict = criterion(outputs, targets)
         weight_dict = criterion.weight_dict
 

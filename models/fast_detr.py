@@ -390,7 +390,7 @@ class PostProcess(nn.Module):
         assert target_sizes.shape[1] == 2
 
         prob = F.softmax(out_logits, -1)
-        scores, labels = prob.max(-1)
+        scores, labels = prob[..., :-1].max(-1)
 
         # prob = out_logits.sigmoid()
         # topk_values, topk_indexes = torch.topk(

@@ -89,7 +89,7 @@ def get_args_parser():
         help="Number of attention heads in the transformer attention",
     )
     parser.add_argument(
-        "--num_queries", default=100, type=int, help="Number of query slots"
+        "--num_queries", default=300, type=int, help="Number of query slots"
     )
 
     # Loss

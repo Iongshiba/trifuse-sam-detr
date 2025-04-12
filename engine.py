@@ -137,7 +137,6 @@ def evaluate(
         for key, val in outputs.items():
             print(key, val.shape)
         loss_dict = criterion(outputs, targets)
-        print(loss_dict)
         weight_dict = criterion.weight_dict
 
         # reduce losses over all GPUs for logging purposes

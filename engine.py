@@ -96,8 +96,6 @@ def train_one_epoch(
         del losses
         del losses_reduced_scaled
 
-        break
-
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)

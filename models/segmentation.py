@@ -221,7 +221,7 @@ def dice_loss(inputs, targets, num_boxes):
 
 
 def softmax_focal_loss(
-    inputs, targets, num_boxes, alpha: float = 0.25, gamma: float = 2
+    inputs, targets, num_boxes, alpha: list = [0, 0.9, 0.2], gamma: float = 2
 ):
     """
     Loss used in RetinaNet for dense detection: https://arxiv.org/abs/1708.02002.
@@ -242,8 +242,8 @@ def softmax_focal_loss(
     p_t = torch.exp(-ce_loss)
     loss = ce_loss * ((1 - p_t) ** gamma)
 
-    if alpha >= 0:
-        alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
+    if alpha:
+        alpha_t = alpha[targets]
         loss = alpha_t * loss
 
     return loss.mean(1).sum() / num_boxes

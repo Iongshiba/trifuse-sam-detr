@@ -126,7 +126,7 @@ def get_args_parser():
     parser.add_argument("--cls_loss_coef", default=2.0, type=float)
     parser.add_argument("--bbox_loss_coef", default=5.0, type=float)
     parser.add_argument("--giou_loss_coef", default=2.0, type=float)
-    parser.add_argument("--focal_alpha", default=0.25, type=float)
+    parser.add_argument("--focal_alpha", default=[0.9, 0.2], type=float)
 
     # dataset parameters
     parser.add_argument("--dataset_file", default="chart")
@@ -203,6 +203,11 @@ def main(args):
     random.seed(seed)
 
     model, criterion, post_processors = build_model(args)
+    # torch.save(
+    #     model.state_dict(),
+    #     r"C:\Users\trand\longg\document\selfstudy\hifuse\reference\trifuse_sam_scratch.pth",
+    # )
+    # return
     model.to(device)
 
     model_without_ddp = model

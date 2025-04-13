@@ -25,7 +25,7 @@ from .segmentation import (
     PostProcessPanoptic,
     PostProcessSegm,
     dice_loss,
-    sigmoid_focal_loss,
+    softmax_focal_loss,
 )
 from .transformer import build_transformer
 from .misc import _get_clones, MLP
@@ -80,13 +80,13 @@ class FastDETR(nn.Module):
             ]
         )
 
-        self.class_embed = nn.Linear(self.hidden_dim, num_classes)
+        self.class_embed = nn.Linear(self.hidden_dim, num_classes + 1)
         self.bbox_embed = MLP(self.hidden_dim, self.hidden_dim, 4, 3)
 
         # init prior_prob setting for focal loss
         prior_prob = 0.01
         bias_value = -math.log((1 - prior_prob) / prior_prob)
-        self.class_embed.bias.data = torch.ones(num_classes) * bias_value
+        self.class_embed.bias.data = torch.ones(num_classes + 1) * bias_value
 
         # init bbox_embed
         nn.init.constant_(self.bbox_embed.layers[-1].weight.data, 0)
@@ -199,19 +199,19 @@ class SetCriterion(nn.Module):
         )
         target_classes[idx] = target_classes_o
 
-        target_classes_onehot = torch.zeros(
-            [src_logits.shape[0], src_logits.shape[1], src_logits.shape[2] + 1],
-            dtype=src_logits.dtype,
-            layout=src_logits.layout,
-            device=src_logits.device,
-        )
-        target_classes_onehot.scatter_(2, target_classes.unsqueeze(-1), 1)
+        # target_classes_onehot = torch.zeros(
+        #     [src_logits.shape[0], src_logits.shape[1], src_logits.shape[2] + 1],
+        #     dtype=src_logits.dtype,
+        #     layout=src_logits.layout,
+        #     device=src_logits.device,
+        # )
+        # target_classes_onehot.scatter_(2, target_classes.unsqueeze(-1), 1)
 
-        target_classes_onehot = target_classes_onehot[:, :, :-1]
+        # target_classes_onehot = target_classes_onehot[:, :, :-1]
         loss_ce = (
-            sigmoid_focal_loss(
+            softmax_focal_loss(
                 src_logits,
-                target_classes_onehot,
+                target_classes,
                 num_boxes,
                 alpha=self.focal_alpha,
                 gamma=2,
@@ -294,7 +294,7 @@ class SetCriterion(nn.Module):
         target_masks = target_masks.flatten(1)
         target_masks = target_masks.view(src_masks.shape)
         losses = {
-            "loss_mask": sigmoid_focal_loss(src_masks, target_masks, num_boxes),
+            "loss_mask": softmax_focal_loss(src_masks, target_masks, num_boxes),
             "loss_dice": dice_loss(src_masks, target_masks, num_boxes),
         }
         return losses
@@ -389,7 +389,7 @@ class PostProcess(nn.Module):
         assert len(out_logits) == len(target_sizes)
         assert target_sizes.shape[1] == 2
 
-        prob = out_logits.sigmoid()
+        prob = out_logits.softmax(dim=-1)
         topk_values, topk_indexes = torch.topk(
             prob.view(out_logits.shape[0], -1), 100, dim=1
         )

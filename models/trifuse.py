@@ -296,7 +296,10 @@ class TriFuse(nn.Module):
 
         ###### Feature Pyramid Network Setting ######
 
-        self.ppm = PyramidPoolingModule(in_channels=256, out_channels=256)
+        # self.ppm = PyramidPoolingModule(in_channels=256, out_channels=256)
+        # self.topconv = nn.Conv2d(
+        #     in_channels=256, out_channels=96, kernel_size=1, stride=1
+        # )
         self.p4 = FPN_Block(hff_in_channels=128, out_channels=256)
         self.p3 = FPN_Block(hff_in_channels=64, out_channels=256)
         self.p2 = FPN_Block(hff_in_channels=32, out_channels=256)
@@ -378,7 +381,8 @@ class TriFuse(nn.Module):
         # [1, 384, 14, 14]
         # [1, 768, 7, 7]
 
-        x_p_4 = self.ppm(x_f_4)
+        # x_p_4 = self.ppm(x_f_4)
+        # x_p_4 = self.topconv(x_f_4)
         x_p_3 = self.p4(x_p_4, x_f_3)
         x_p_2 = self.p3(x_p_3, x_f_2)
         x_p_1 = self.p2(x_p_2, x_f_1)

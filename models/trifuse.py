@@ -383,6 +383,7 @@ class TriFuse(nn.Module):
 
         # x_p_4 = self.ppm(x_f_4)
         # x_p_4 = self.topconv(x_f_4)
+        x_p_4 = x_f_4
         x_p_3 = self.p4(x_p_4, x_f_3)
         x_p_2 = self.p3(x_p_3, x_f_2)
         x_p_1 = self.p2(x_p_2, x_f_1)

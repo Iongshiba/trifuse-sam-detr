@@ -38,25 +38,132 @@ class CocoEvaluator(object):
         self.eval_imgs = {k: [] for k in iou_types}
 
     def get_metrics(self):
-        metrics = {}
-        precision = self.coco_eval["bbox"].eval["precision"]
-        recall = self.coco_eval["bbox"].eval["recall"]
-        precision_50_all = precision[
-            0, :, :, 0, 2
-        ]  # IoU=0.5, all categories, all areas
-        avg_precision = np.mean(
-            precision_50_all[precision_50_all > 0]
-        )  # Skip NaN values
-        # Get max recall at IoU=0.5 for all categories and areas
-        recall_50_all = recall[0, :, 0, 2]  # IoU=0.5, all categories, all areas
-        avg_recall = np.mean(recall_50_all[recall_50_all > 0])  # Skip NaN values
+        """
+        Calculate detection metrics using a similar approach to Ultralytics YOLOv8.
+        Returns precision, recall, mAP50, and mAP50-95 metrics.
+        """
+        if (
+            not hasattr(self.coco_eval["bbox"], "eval")
+            or self.coco_eval["bbox"].eval is None
+        ):
+            return {
+                "precision": 0.0,
+                "recall": 0.0,
+                "mAP50": 0.0,
+                "mAP5095": 0.0,
+                "fitness": 0.0,
+            }
 
+        coco_eval = self.coco_eval["bbox"]
+
+        # Get precision and recall arrays from COCO evaluation
+        precision = coco_eval.eval[
+            "precision"
+        ]  # shape [TxRxKxAxM] where T=10 IoU thresholds, R=recall, K=classes, A=areas, M=max dets
+        recall = coco_eval.eval[
+            "recall"
+        ]  # shape [TxKxA] where T=10 IoU thresholds, K=classes, A=areas
+
+        # Get number of classes and create metric arrays
+        num_classes = precision.shape[2]
+        p_per_class = np.zeros(num_classes)
+        r_per_class = np.zeros(num_classes)
+        f1_per_class = np.zeros(num_classes)
+        ap50_per_class = np.zeros(num_classes)
+        ap_per_class = np.zeros(num_classes)
+
+        # x-coordinates for curve interpolation (similar to Ultralytics)
+        x = np.linspace(0, 1, 101)  # 101-point interpolation (COCO standard)
+
+        # Process each class
+        for class_idx in range(num_classes):
+            # For AP50 (IoU=0.5)
+            iou_idx = 0  # IoU@0.5
+            # Extract precision and recall curves for this class
+            # Use area='all' (idx 0) and max detections (idx -1)
+            prec_curve = precision[iou_idx, :, class_idx, 0, -1]
+            rec_curve = np.linspace(
+                0, 1, prec_curve.shape[0]
+            )  # COCO standard recall points
+
+            # Remove -1 values (similar to Ultralytics)
+            valid_idx = prec_curve > -1
+            prec_curve = prec_curve[valid_idx]
+            rec_curve = rec_curve[valid_idx]
+
+            if len(prec_curve) > 0:
+                # Compute AP using Ultralytics method
+                # Append sentinel values
+                mrec = np.concatenate(([0.0], rec_curve, [1.0]))
+                mpre = np.concatenate(([1.0], prec_curve, [0.0]))
+
+                # Compute the precision envelope (maximum precision for each recall value)
+                mpre = np.flip(np.maximum.accumulate(np.flip(mpre)))
+
+                # Integrate using interpolation (COCO approach)
+                ap50 = np.trapz(np.interp(x, mrec, mpre), x)
+                ap50_per_class[class_idx] = ap50
+
+                # Get precision and recall at max F1 point
+                # Calculate F1 curve
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    f1_curve = (
+                        2 * (mpre[:-1] * mrec[:-1]) / (mpre[:-1] + mrec[:-1] + 1e-16)
+                    )
+
+                # Find point of maximum F1
+                max_f1_idx = np.nanargmax(f1_curve)
+                p_per_class[class_idx] = mpre[max_f1_idx]
+                r_per_class[class_idx] = mrec[max_f1_idx]
+                f1_per_class[class_idx] = f1_curve[max_f1_idx]
+
+            # Calculate AP across all IoU thresholds (mAP@0.5:0.95)
+            ap_all_ious = []
+            for iou_idx in range(len(coco_eval.params.iouThrs)):
+                prec_curve = precision[iou_idx, :, class_idx, 0, -1]
+                valid_idx = prec_curve > -1
+                prec_curve = prec_curve[valid_idx]
+
+                if len(prec_curve) > 0:
+                    rec_curve = np.linspace(0, 1, len(prec_curve))
+
+                    # Compute AP for this IoU threshold
+                    mrec = np.concatenate(([0.0], rec_curve, [1.0]))
+                    mpre = np.concatenate(([1.0], prec_curve, [0.0]))
+                    mpre = np.flip(np.maximum.accumulate(np.flip(mpre)))
+                    ap_iou = np.trapz(np.interp(x, mrec, mpre), x)
+                    ap_all_ious.append(ap_iou)
+                else:
+                    ap_all_ious.append(0.0)
+
+            ap_per_class[class_idx] = np.mean(ap_all_ious)
+
+        # Calculate mean metrics
+        mp = np.mean(p_per_class)
+        mr = np.mean(r_per_class)
+        mf1 = np.mean(f1_per_class)
+        map50 = np.mean(ap50_per_class)
+        map = np.mean(ap_per_class)
+
+        # Calculate fitness score using Ultralytics weighting
+        w = np.array([0.0, 0.0, 0.1, 0.9])  # weights for [P, R, mAP@0.5, mAP@0.5:0.95]
+        fitness = (np.array([mp, mr, map50, map]) * w).sum()
+
+        # Format return values
         metrics = {
-            "precision": avg_precision.item(),
-            "recall": avg_recall.item(),
-            "mAP50": self.coco_eval["bbox"].stats[1].item(),
-            "mAP5095": self.coco_eval["bbox"].stats[0].item(),
+            "precision": float(mp),
+            "recall": float(mr),
+            "f1": float(mf1),
+            "mAP50": float(map50),
+            "mAP5095": float(map),
+            "fitness": float(fitness),
+            # "precision_per_class": p_per_class,
+            # "recall_per_class": r_per_class,
+            # "f1_per_class": f1_per_class,
+            # "ap50_per_class": ap50_per_class,
+            # "ap_per_class": ap_per_class,
         }
+
         return metrics
 
     def update(self, predictions):

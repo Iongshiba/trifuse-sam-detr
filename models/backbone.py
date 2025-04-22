@@ -139,6 +139,11 @@ def build_backbone(args):
         conv_depths=(2, 2, 2, 2),
         num_classes=args.num_classes,
     )
+
+    if args.pretrained_backbone:
+        ckpt = torch.load(args.pretrained_backbone, map_location="cpu")
+        trifuse.load_state_dict(ckpt["net"])
+
     backbone = BackboneBase(trifuse)
     model = Joiner(backbone, position_embedding)
     model.num_channels = [trifuse.embed_dim * 8 * 4]

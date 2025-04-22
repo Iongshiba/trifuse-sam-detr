@@ -133,7 +133,7 @@ def get_args_parser():
     parser.add_argument(
         "--coco_path",
         type=str,
-        default=r"D:\Dataset\doclaynet\doclaynet_yolo_dataset_chart\images",
+        default=r"D:\Dataset\doclaynet\doclaynet_yolo_dataset_v1\images",
     )
     parser.add_argument("--remove_difficult", action="store_true")
 
@@ -152,7 +152,14 @@ def get_args_parser():
         help="resume from checkpoint, empty for training from scratch",
     )
     parser.add_argument(
-        "--pretrained", default="", help="load pretrained from checkpoint"
+        "--pretrained",
+        default=r"",
+        help="load pretrained from checkpoint",
+    )
+    parser.add_argument(
+        "--pretrained_backbone",
+        default=r"C:\Users\trand\longg\document\selfstudy\hifuse\reference\SAM-DETR-main\trifuse_sam_detr_checkpoint\trifuse_backbone_256.pth",
+        help="load pretrained backbone from checkpoint",
     )
     parser.add_argument(
         "--start_epoch", default=0, type=int, metavar="N", help="start epoch"
